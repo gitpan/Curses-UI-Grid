@@ -1,0 +1,11 @@
+name: Curses-UI-Grid
+version: 0.10
+license: perl
+distribution_type: module
+requires:
+  Curses::UI: 0.71
+index:
+   file:
+      - lib/Curses/UI/Grid.pm
+   package:
+      - Curses::UI::Grid

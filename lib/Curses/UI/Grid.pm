@@ -24,7 +24,7 @@ use vars qw(
     @ISA
 );
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 
 @ISA = qw(
@@ -51,6 +51,7 @@ my %routines = (
     'delete-row'	     => \&delete_row,
     'delete-character'	     => \&delete_character,
     'backspace'              => \&backspace,
+    'mouse-button1'          => \&mouse_button1,
 );
 
 # Configuration: binding to routine name mapping.
@@ -204,8 +205,15 @@ sub new ()
     #overwrite base editbindings
     %editbindings=( %{$args{-editbindings}} ) if exists($args{-editbindings});
     
+
+
     # Create the Widget.
     my $this = $class->Curses::UI::Widget::new( %args );
+
+    if($Curses::UI::ncurses_mouse) {
+            $this->set_mouse_binding('mouse-button1', BUTTON1_CLICKED());
+    }
+
     $this->{-page_size} = $this->canvasheight-2;
     $this->add_row('header',%args,-type=>'head');
     $this->set_cells(); 	#if column is not FALSE add empty cells to grid
@@ -1270,6 +1278,56 @@ sub idx2rowid(){
 sub id() 	{ shift()->{-id} }
 sub readonly()  { shift()->{-readonly} }
 
+
+
+##############################################################
+# Mouse's functions
+##############################################################
+
+
+sub x2cell() {
+   my $this=shift;
+   my $x=shift;
+   my $c=\@{ $this->{_cells} };
+   my ($Result,$w)=($$c[0],0);
+  
+    for my $i( 0 ..$#{$c} ) {
+        my $o= $this->id2cell($$c[$i]);
+        	unless ($o->hidden ) {
+ 			if($x >= $w  && $x < $w+$o->w+1) {
+				$Result=$o;last;
+			}		
+		$w+=$o->w+1;
+		}
+    }
+    return $Result;
+}
+
+sub y2row() {
+    my $this  = shift;
+    my $y = shift;
+    my $r='';
+   if($y <= $#{ $this->{_rows} } ) {
+        $r = $this->id2row(  $this->{_rows}[$y] );
+   }
+   return $r;
+}
+
+sub mouse_button1($$$$;) {
+    my $this  = shift;
+    my $event = shift;
+    my $x     = shift;
+    my $y     = shift;
+
+    my $r = $this->y2row($y -1 );
+    if( ref $r ) {
+	   my $c = $this->x2cell($x);
+  	   $this->focus_row($r,undef,0);
+	   $this->focus_cell($c,undef,0) if( ref $c );
+    }
+
+  return $this;
+}
 
 
 

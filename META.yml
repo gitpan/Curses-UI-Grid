@@ -1,11 +1,11 @@
-name: Curses-UI-Grid
-version: 0.10
-license: perl
-distribution_type: module
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Curses-UI-Grid
+version:      0.11
+version_from: lib/Curses/UI/Grid.pm
+installdirs:  site
 requires:
-  Curses::UI: 0.71
-index:
-   file:
-      - lib/Curses/UI/Grid.pm
-   package:
-      - Curses::UI::Grid
+    Curses::UI:                    0
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.30

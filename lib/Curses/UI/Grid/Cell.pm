@@ -501,11 +501,15 @@ __END__
 
 Curses::UI::Grid::Cell -  Create and manipulate cell in grid model.
 
+
+
 =head1 CLASS HIERARCHY
 
  Curses::UI::Grid
     |
     +----Curses::UI::Cell
+
+
 
 
 =head1 SYNOPSIS
@@ -521,6 +525,7 @@ Curses::UI::Grid::Cell -  Create and manipulate cell in grid model.
 			     ,-frozen=>1
 			     ,-align => 'R'
 			   );
+
 
 
 
@@ -542,6 +547,7 @@ Curses::UI::Grid::Cell -  Create and manipulate cell in grid model.
 
 For an explanation of these standard options, see
 L<Curses::UI::Widget|Curses::UI::Widget>.
+
 
 
 =head1 WIDGET-SPECIFIC OPTIONS
@@ -578,6 +584,8 @@ after the cell becomes focused the old value will be cleared
 unless the function key will be pressed earlier. (cursor_left,cursor_to_end,etc.)
 
 
+=back
+
 =head1 METHODS
 
 =over 4
@@ -601,7 +609,7 @@ is true, the screen is not updated after drawing.
 
 By default, BOOLEAN is true so the screen is updated.
 
-
+=back
 
 =head1 WIDGET-SPECIFIC METHODS
 
@@ -638,10 +646,12 @@ If -bg_  is NULL then -bg or parent bg color is return.
 
 Thid routine could set or get text value for given cell and active row.
 
+
 =back
 
 =head1 SEE ALSO
        Curses::UI::Grid::Row Curses::UI::Grid
+
 
 
 =head1 AUTHOR

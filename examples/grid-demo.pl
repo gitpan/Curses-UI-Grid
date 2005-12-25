@@ -1,4 +1,4 @@
-#!/usr/local/ActivePerl-5.8/bin/perl -w
+#!/usr/bin/perl -w
 
 use strict;
 use File::Temp qw( :POSIX );
@@ -235,7 +235,6 @@ my %args = (
 	    my $p=$row->parent->parent;
 	      foreach my $k (qw(COUNTRY PROD SALE)) {
 		    my $o=$p->getobj($k);
-		    warn "o:".$o;
 		    $o->text($row->get_value($k)) if(ref($o));
 	      }
 	}

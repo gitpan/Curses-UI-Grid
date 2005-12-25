@@ -314,6 +314,7 @@ Curses::UI::Grid::Row
 
 Create and manipulate row in grid model.
 
+
 =head1 CLASS HIERARCHY
 
  Curses::UI::Grid
@@ -330,6 +331,8 @@ Create and manipulate row in grid model.
     my $row1=$grid->add_row( -fg=>'blue'
                             ,-bg->'white' );
 
+
+
 =head1 DESCRIPTION
 
        Curses::UI::Grid::Row is a widget that can be used to
@@ -339,8 +342,10 @@ Create and manipulate row in grid model.
       See exampes/grid-demo.pl in the distribution for a short demo.
 
 
+
 =head1 STANDARD OPTIONS
        -parent,-fg,-bg
+
 
 
 =head1 WIDGET-SPECIFIC OPTIONS
@@ -352,6 +357,8 @@ Create and manipulate row in grid model.
 
 =item * B<-cells_undo> < HASH >
 
+
+=back
 
 =head1 METHODS
 
@@ -376,6 +383,8 @@ is true, the screen is not updated after drawing.
 
 By default, BOOLEAN is true so the screen is updated.
 
+
+=back
 
 =head1 WIDGET-SPECIFIC OPTIONS
 
@@ -441,15 +450,18 @@ If -bg_  is NULL then -bg or parent bg color is return.
 
 This routine will set or get value for cell and active row.
 
+
 =back
 
 =head1 SEE ALSO
        Curses::UI::Grid::Cell Curses::UI::Grid
 
 
+
 =head1 AUTHOR
 
        Copyright (c) 2004 by Adrian Witas. All rights reserved.
+
 
 
 =head1 COPYRIGHT AND LICENSE

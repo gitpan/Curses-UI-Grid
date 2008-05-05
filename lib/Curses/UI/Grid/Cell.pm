@@ -22,10 +22,8 @@ use vars qw(
     @ISA
 );
 
-$VERSION = '0.01';
-@ISA = qw(
-    Curses::UI::Grid
-    );
+$VERSION = '0.13';
+@ISA = qw(Curses::UI::Grid);
     
 
 sub new () {
@@ -39,9 +37,9 @@ sub new () {
 	,-row		 => undef	# row object
         # Position and size
         ,-x               => 0           # horizontal position (rel. to -window)
-	,-w	 	  => undef
+	,-current_width	  => undef
         ,-width           => undef       # default width 10
-        ,-align       	  => "L"         # align L - left, R - right
+        ,-align       	  => 'L'         # align L - left, R - right
 	# Initial state
         ,-xpos             => 0           # cursor position
 
@@ -71,49 +69,64 @@ sub new () {
     $this->{-xoffset}  = 0; #
     $this->{-xpos}     = 0; # X position for cursor in the document
     $this->parent->layout_content;
-    return $this;
+    $this;
 }
 
 # set layout
-sub set_layout ($$$) {
-    my $this = shift;
-    my $x=shift;
-    my $w=shift;
+sub set_position {
+    my ($this, $x, $current_width) = @_;
     $this->x($x);
-    $this->w($w);
-     if($w > 0) { $this->show
-     } else { $this->hide; }
+    $this->current_width($current_width);
+    if($current_width  > 0) { 
+    		$this->show
+     } else {
+     		$this->hide; 
+     }
 
-return $w;
+		$current_width;
 }	
 
 
-sub layout_text($) {
+sub layout_text {
    my $this = shift;
-
-   my $r= $this->row;
-   my $p=$this->parent;
-   my ($width,$w,$a,$t)=($this->width,$this->w,$this->align, $this->text );
-   if($r->type ne 'head') {
-	my $ret= $p->run_event('-oncelllayout',$this,$t);
-	$t=$ret if(defined $ret && !ref($ret));
-    }
-
-	return '' unless defined $w;
+   my $row= $this->row;
+   my $grid = $this->parent;
+   my $current_width = $this->current_width  
+     or return;
+   my $width = $this->width;
+	 my $alignlign = $this->align;
+   my $text = $this->text;
+   
+   # backward event compatibility
+   if	($grid->is_event_defined('-oncelllayout') && $row->type ne 'head') {
+   		my $text_layouted = $grid->run_event('-oncelllayout', $this, $text);
+   		$text = ref($text_layouted)
+   		  ? $text
+   		  : $text_layouted;
+   }
+   
+	 my $text_length = length(($text || ''));
 	
-	if($a eq "R" && length($t) > $w ) {
-	    $t=substr($t, (length($t)-$w-$this->xoffset) ,$w);
+	if($alignlign eq 'R' && $text_length > $current_width) {
+	    $text = substr(
+	      $text, 
+	      ($text_length - $current_width - $this->xoffset), 
+	      $current_width
+	    );
 	} 
-	if($a eq "L" && abs($this->xoffset) ) {
-	    $t=substr($t,-$this->xoffset,$w);
+	
+	if($alignlign eq 'L' && abs($this->xoffset)) {
+	    $text = substr($text, -$this->xoffset, $current_width);
 	}
 
-
-       $t=sprintf("%".($a eq "L"  ? "-":"").$width."s" ,$t);
-       $t= $a eq "L" ? substr($t,0,$w) : substr($t, (length($t)-$w),$w);
-       $t.=" " if(ref($this->row) && $this->row->type ne "data");
-
-  return $t;
+  $text = sprintf("%".(($alignlign || '') eq 'L'  ? "-":"") . $width . "s", ($text ||''));
+  $text = $alignlign eq 'L' 
+    ? substr($text, 0, $current_width) 
+    : substr($text, (length($text) - $current_width), $current_width);
+  $text .= ' '
+    if(ref($this->row) && $this->row->type ne 'data');
+	
+  $text;
 }
 
 
@@ -124,21 +137,21 @@ sub draw($;) {
     # Return immediately if this object is hidden.
     return $this if $this->hidden;
     return $this if $Curses::UI::screen_too_small; 
-     my $p=$this->parent;
-     my $r=$this->row(1);
+     my $grid =$this->parent;
+     my $row=$this->row(1);
 
-   if( $#{$p->{_rows}} > 1 ) {
+   if( $#{$grid->{_rows}} > 1 ) {
         $this->{-nocursor}=0;
     } else {
         $this->{-nocursor}=1;
     }
 
-     $r->{-canvasscr}->attron(A_BOLD) if($r->{-focus});
-     $this->draw_cell(1,$r);
-     $r->{-canvasscr}->attroff(A_BOLD) if($r->{-focus});
-     doupdate() unless $no_doupdate;
-     $r->{-canvasscr}->move($r->y,$this->xabs_pos);
-     $r->{-canvasscr}->noutrefresh;
+     $row->canvasscr->attron(A_BOLD) if($row->{-focus});
+     $this->draw_cell(1,$row);
+     $row->canvasscr->attroff(A_BOLD) if($row->{-focus});
+     doupdate() if ! $no_doupdate && ! $grid->test_more;
+     $row->canvasscr->move($row->y,$this->xabs_pos);
+     $row->canvasscr->noutrefresh;
 
 
     return $this;
@@ -148,48 +161,52 @@ sub draw($;) {
 sub draw_cell($$$) {
     my $this = shift;
     my $no_doupdate = shift || 0;
-    my $r = shift;
-    $r=$this->row($r);
-    # Return immediately if this object is hidden.
-    return $this if $this->hidden;
-    my $p=$this->parent;
-    $p->run_event('-oncelldraw',$this)  if($r->type ne 'head');
-    # Let there be color
-    my $fg=$r->type ne 'head' ? $this->fg : $p->{-fg};
-    my $bg=$r->type ne 'head' ? $this->bg : $p->{-bg};
-    my $pair=$p->set_color($fg,$bg,$r->{-canvasscr});
-    my ($x,$t)=($this->x,$this->layout_text);
-    $t=substr($t,0,$p->canvaswidth-$x) if(length($t)+$x >= $p->canvaswidth);
-    $r->{-canvasscr}->addstr($r->y,$x,$t);
-    $p->color_off($pair,$r->{-canvasscr});
-    return $this;
+    my $row = shift;
+    $row = $this->row($row);
+    return $this 
+      if $this->hidden;
+    my $grid = $this->parent;
+    
+    $grid->run_event('-oncelldraw', $this)
+      if ($row->type ne 'head');
+      
+    my $fg=$row->type ne 'head' ? $this->fg : $grid->{-fg};
+    my $bg=$row->type ne 'head' ? $this->bg : $grid->{-bg};
+    my $pair=$grid->set_color($fg,$bg,$row->canvasscr);
+    my $x = $this->x;
+    my $text = $this->layout_text || '';
+    $text = substr($text, 0, $grid->canvaswidth - $x) 
+      if (length($text) + $x >= $grid->canvaswidth);
+    $row->canvasscr->addstr($row->y, $x, $text);
+    $grid->color_off($pair, $row->canvasscr);
+    $this;
 }
 
 sub text($$) {
     my $this = shift;
     my $text = shift;
     my $result='';
-    my $r=$this->row;
-    my $p=$this->parent;
-    my $type= $r->type || '';
+    my $row=$this->row;
+    my $grid =$this->parent;
+    my $type= $row->type || '';
     my $id=$this->id;
     #if row type is head return or set label attribute otherwise cell value
     if(defined $text) {
 	if($type eq 'head') { 
 	   $this->{-label}=$text; 
 	} else {  
-	   $r->{-cells}{$id}=$text; 
+	   $row->{-cells}{$id}=$text; 
 	}
     }
     
-    $result = $type eq 'head' ? $this->{-label} : exists $r->{-cells}{$id} ? $r->{-cells}{$id} :'' if($type) ;
+    $result = $type eq 'head' ? $this->{-label} : exists $row->{-cells}{$id} ? $row->{-cells}{$id} :'' if($type) ;
     return $result;
 }
 
 sub cursor_right($) {
     my $this = shift;
     $this->overwriteoff;
-    $this->xoffset($this->xoffset-1) if($this->xpos()   == ($this->w-1) );
+    $this->xoffset($this->xoffset-1) if($this->xpos()   == ($this->current_width -1) );
     $this->xpos($this->xpos+1);
     $this->draw(1);
     
@@ -208,39 +225,66 @@ sub cursor_left($) {
 sub cursor_to_home($) {
     my $this = shift;
     $this->overwriteoff;
-    my ($t,$w,$a)=($this->text,$this->w,$this->align);
-    $this->xoffset($a eq "L" ?  $w : (length($t)-$w > 0 ? length($t)-$w: 0 ) );
-    $this->xpos( $a eq "L" ? 0 : $w-length($t) );
+    my $text = $this->text;
+    my $current_width = $this->current_width;
+    my $align = $this->align;
+    
+    $this->xoffset($align eq 'L' 
+      ?  $current_width 
+      : (length($text) - $current_width > 0 
+        ? length($text) - $current_width
+        : 0 )
+    );
+
+    $this->xpos($align eq 'L' 
+      ? 0 
+      : $current_width - length($text)
+    );
     $this->draw(1);
 }
+
 
 sub cursor_to_end($) {
     my $this = shift;
     $this->overwriteoff;
-    my ($t,$w,$a)=($this->text,$this->w,$this->align);
-    $w=$w > length($t) && $a eq "L" ? length($t)+1 : $w;
-    $this->xoffset( $a eq "R" ? 0:  $w-1-length($t) ) if( length($t) >= $w) ;
-    $this->xpos( $a eq "L" ? $w-1 : $w-1 );
+    my $text_lenght = length $this->text;
+    my $current_width = $this->current_width;
+    my $align = $this->align;
+    $current_width = $current_width > $text_lenght && $align eq 'L' 
+      ? $text_lenght + 1 
+      : $current_width;
+    $this->xoffset(
+      $align eq 'R' 
+        ? 0
+        : $current_width -  $text_lenght - 1) 
+          if ($text_lenght >= $current_width);
+    
+    $this->xpos($align eq 'L' 
+      ? $current_width - 1 
+      : $current_width-1);
+    
     $this->draw(1);
 }
 
 sub delete_character($) {
     my $this = shift;
-    my $ch= shift;
-    my $p=$this->parent;
     return if $this->readonly;
-    my $ret= $p->run_event('-oncellkeypress',$this,$ch);
-    return if(defined $ret && !$ret);
-
+    my $ch = shift;
+    my $grid = $this->parent;
+    $grid->run_event('-oncellkeypress', $this, $ch) 
+      or return;
     $this->overwriteoff;
-
     my $text=$this->text;
-    my ($xo,$pos,$len,$a,$w)= ($this->xoffset ,$this->text_xpos,$this->w+abs($this->xoffset),$this->align,$this->w);
+    my $xo = $this->xoffset;
+    my $pos = $this->text_xpos;
+    my $len = $this->current_width+abs($this->xoffset);
+    my $align = $this->align;
+    my $current_width = $this->current_width;
 
-    return if($a eq "R" && $pos <= 0);  
-    $this->xoffset($this->xoffset-1) if($a eq "R" &&  $xo && length($text) - $xo >= $w);
-    $this->xoffset($this->xoffset-1) if($a eq "L" && length($text) > $len);
-    $pos-- if($a eq "R");
+    return if($align eq 'R' && $pos <= 0);  
+    $this->xoffset($this->xoffset-1) if($align eq 'R' &&  $xo && length($text) - $xo >= $current_width);
+    $this->xoffset($this->xoffset-1) if($align eq 'L' && length($text) > $len);
+    $pos-- if($align eq 'R');
     substr($text, $pos, 1, '') if(abs($pos) <= length($text));
     $this->text($text);
     $this->draw(1);
@@ -248,26 +292,26 @@ sub delete_character($) {
 
 sub backspace($) {
     my $this = shift;
-    my $ch= shift;
+    my $ch = shift;
     return if $this->readonly;
-    my $p=$this->parent;
-    my $ret= $p->run_event('-oncellkeypress',$this,$ch);
-    return if(defined $ret && !$ret);
+    my $grid =$this->parent;
+    $grid->run_event('-oncellkeypress', $this, $ch) 
+      or return;
     $this->overwriteoff;
-    my ($a,$xo)=($this->align,$this->xoffset);
+    my ($align,$xo)=($this->align,$this->xoffset);
     $this->cursor_left;
     $this->delete_character();
-    $this->cursor_right  if($a eq "R" );
+    $this->cursor_right  if($align eq 'R' );
 }
 
 sub add_string($$;) {
     my $this = shift;
     my $ch = shift;
     return if $this->readonly;
-    my $p = $this->parent;
+    my $grid = $this->parent;
 
-    my $ret= $p->run_event('-oncellkeypress',$this,$ch);
-    return if(defined $ret && !$ret);
+    my $ret= $grid->run_event('-oncellkeypress', $this, $ch)
+      or return;
 
     my @ch = split //, $ch;
     $ch = '';
@@ -278,14 +322,14 @@ sub add_string($$;) {
 
     $this->text('') if( $this->overwritetext );
 
-    my ($xo,$pos,$len,$a)= ($this->xoffset ,$this->text_xpos,  length($this->text),$this->align);
+    my ($xo,$pos,$len,$align)= ($this->xoffset ,$this->text_xpos,  length($this->text),$this->align);
     my $text=$this->text;
 
     substr($text, abs($pos) , 0) = $ch  if($pos <= $len );
     $this->text($text);
-    $this->cursor_right if($a eq "L");
+    $this->cursor_right if($align eq 'L');
     $this->draw();
-    $p->run_event('-onaftercellkeypress',$this,$ch);
+    $grid->run_event('-onaftercellkeypress', $this, $ch);
 }
 
 
@@ -302,7 +346,7 @@ sub x($;) {
 sub xabs_pos($;) {
     my $this=shift;
     my $result="";
-    my $xpos=( $this->xpos > ($this->w-1) ? $this->w-1 : $this->xpos );
+    my $xpos=( $this->xpos > ($this->current_width-1) ? $this->current_width-1 : $this->xpos );
     $xpos =0 if($xpos < 0);
     return $this->{-x} + $xpos;
 }
@@ -324,8 +368,8 @@ sub xpos($;) {
 # cursor position in text
 sub text_xpos($;) {
     my $this=shift;
-    my ($w,$x,$xo,$a,$l)=($this->w-1,$this->xpos,$this->xoffset,$this->align,length($this->text));    
-    return  $a eq "R" ? $l-($w-$x+abs($xo)) : $x-$xo;
+    my ($w,$x,$xo,$align,$l)=($this->current_width-1,$this->xpos,$this->xoffset,$this->align,length($this->text));    
+    return  $align eq 'R' ? $l-($w-$x+abs($xo)) : $x-$xo;
 }
 
 
@@ -333,10 +377,10 @@ sub text_xpos($;) {
 sub xoffset($;) {
     my $this=shift;
     my $xo=shift;
-    my ($a,$l,$w)=($this->align,length($this->text),$this->w);
+    my ($align,$l,$w)=($this->align,length(($this->text || '')),$this->current_width);
 
     if( defined($xo) ) {
-	if($a eq "L" ) {
+	if($align eq 'L' ) {
         $xo=0 if($xo > 0);
         #$xo=$this->w-1 if($xo < 0);
 	} else {
@@ -355,9 +399,9 @@ sub xoffset($;) {
 sub event_onfocus()
 {
     my $this = shift;
-    my $p=$this->parent;
+    my $grid =$this->parent;
     $this->overwriteon;
-    $p->{-cell_idx}=$p->{-cellid2idx}{ $this->{-id} };
+    $grid->{-cell_idx}=$grid->{-cellid2idx}{ $this->{-id} };
 
     # Store value of cell in case of data change
     if(ref($this->row) && $this->row->type ne 'head' ) {
@@ -366,14 +410,14 @@ sub event_onfocus()
     # Let the parent find another cell to focus
     # if this widget is not focusable.
     $this->{-focus} = 1;
-    if( $this->width ne $this->w || $this->hidden ) {
-	my $vs=$p->get_vscroll_to_obj($this);
-	   $p->vscroll($vs);
+    if ($this->width != ($this->current_width ||0) || $this->hidden ) {
+				my $vs = $grid->get_x_offset_to_obj($this);
+	   		$grid->x_offset($vs);
     }
 
-    $this->xpos( $this->align eq "L" ? 0 : $this->w-1 );
+    $this->xpos($this->align eq 'L' ? 0 : $this->current_width - 1);
     $this->xoffset(0);
-    $p->run_event('-oncellfocus',$this);
+    $grid->run_event('-oncellfocus', $this);
     $this->draw(1);
     return $this;
 }
@@ -381,38 +425,28 @@ sub event_onfocus()
 
 sub event_onblur() {
     my $this = shift;
-    my  $p=$this->parent;
-    $this->xpos( $this->align eq "L" ? 0 : $this->w-1 );
+    my  $grid =$this->parent;
+    $this->xpos($this->align eq 'L' ? 0 : $this->current_width - 1);
     $this->xoffset(0);
-    my $res= $p->run_event('-oncellblur',$this);
-
-    #if event return values and it's equal 0 then cancell onblur event
-    if(defined $res) {
-	if($res eq "0") {
-	    return '';
-	}
-    }
-
-    # test cellchange trigger
-    if(ref($this->row) && $this->row->type ne 'head' ) {
-	my ($undo,$text)=($this->row->get_undo_value($this->id) ,$this->text);
+    $grid->run_event('-oncellblur',$this)
+      or return;
+    
+    if (ref($this->row) && $this->row->type ne 'head' ) {
+				my $undo = $this->row->get_undo_value($this->id);
+				my $text = $this->text;
 	
-	# if data was changed
-	if($undo ne $text) {
-	    $res= $p->run_event('-oncellchange',$this);
-	    #if event return values and it's equal 0 then cancell onblur event
-	    if(defined $res) {
-		    if($res eq "0") {
-			return '';
-		    }
-	    }
-	}
+				# if data was changed
+
+	    	$grid->run_event('-oncellchange', $this) 
+	    	  or return
+	    	    if ($undo || '') ne ($text || '');
     }
-    $p->{-cell_idx_prev}=$p->{-cellid2idx}{ $this->{-id} };
+    
+    $grid->{-cell_idx_prev} = $grid->{-cellid2idx}{$this->{-id}};
     $this->{-focus} = 0;
 
     $this->draw;
-    return $this;
+    $this;
 }
 
 sub overwriteoff() { shift()->{-overwritetext}=0 }
@@ -428,7 +462,7 @@ sub overwritetext($;) {
 
 sub has_focus() {
     my $this=shift;
-    my $p=$this->parent;
+    my $grid =$this->parent;
     my $result=0;
     $result=1 if($this->{-focus});
 return $result;
@@ -460,10 +494,10 @@ sub fg() {
 }
 
 sub row() {
-    my $this = shift;
-    my $row= shift;
-    $this->{-row} = $row if defined $row;
-    $this->{-row}=$this->parent->getactiverow 
+    my ($this, $row) = @_;
+    $this->{-row} = $row 
+      if defined $row;
+    $this->{-row} = $this->parent->get_foused_row
 	    if(!ref($this->{-row}) ||  ref($this->{-row}) ne 'Curses::UI::Grid::Row');
     return $this->{-row};
 }
@@ -473,24 +507,43 @@ sub row() {
 sub align()  { uc(shift()->{-align})    }
 sub frozen() { shift->{-frozen}         }
 # defined width
-sub width()  { shift->{-width}          }
-
-#current width
-sub w($;) {
-    my $this=shift;
-    my $w=shift;
-    $this->{-w}=$w if(defined $w);
-    return $this->{-w};
+sub width()  { 
+		my ($self, $width) = @_;
+		$self->{-width} = $width if(defined $width);
+		$self->{-width};
 }
 
+#current width
+sub current_width {
+    my ($this, $current_width) = @_;
+    $this->{-current_width} = $current_width 
+      if (defined $current_width);
+    return $this->{-current_width};
+}
+
+sub cleanup {
+		my $this = shift;
+		my $grid = $this->parent;		
+		if ($grid) {
+    		delete $this->{-cellid2idx}{$this->id};
+    		delete $this->{-id2cell}{$this->id};
+    		$grid->{-columns}--;
+				$this->{$_} = ''
+					for (qw(-canvasscr -parent -row));
+		}
+}
+
+sub label {
+		my ($this, $label) = @_;
+		$this->{-label} = $label
+			if defined $label;
+		$this->{-label};	
+}
+
+
 sub DESTROY {
-    my $this=shift;
-    foreach my $k (qw(-canvasscr -parent -row)) {
-        delete $this->{$k} if ( $this->{$k}='' );
-    }
-    foreach my $k( keys %{$this} ) {
-        delete $this->{$k};
-    }
+    my $this = shift;
+    $this->cleanup;
 }
 
 __END__
@@ -500,8 +553,6 @@ __END__
 =head1 NAME
 
 Curses::UI::Grid::Cell -  Create and manipulate cell in grid model.
-
-
 
 =head1 CLASS HIERARCHY
 
@@ -646,17 +697,16 @@ If -bg_  is NULL then -bg or parent bg color is return.
 
 Thid routine could set or get text value for given cell and active row.
 
-
 =back
 
 =head1 SEE ALSO
-       Curses::UI::Grid::Row Curses::UI::Grid
 
-
+L<Crses::UI::Grid::Row>
+L<Curses::UI::Grid>
 
 =head1 AUTHOR
 
-       Copyright (c) 2004 by Adrian Witas. All rights reserved.
+Copyright (c) 2004 by Adrian Witas. All rights reserved.
 
 
 =head1 COPYRIGHT AND LICENSE
@@ -664,10 +714,6 @@ Thid routine could set or get text value for given cell and active row.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-
-=pod SCRIPT CATEGORIES
-
-User Interfaces
-
+=cut
 
 1;

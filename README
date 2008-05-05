@@ -1,4 +1,4 @@
-Curses/UI/Grid version 0.12
+Curses/UI/Grid version 0.13
 ===========================
  Subclass of Curses::UI::Grid is a widget that can be used to display
  and manipulate data in grid model

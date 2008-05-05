@@ -1,18 +1,16 @@
 #!/usr/bin/perl -w
-
 use strict;
-use File::Temp qw( :POSIX );
-use lib "../lib";
-use lib ".";
+#use warnings;
 
+use FindBin;
+use lib "$FindBin::RealBin/../lib";
 #   make KEY_BTAB (shift-tab) working in XTerm
 #   and also at the same time enable colors
 #$ENV{TERM} = "xterm-vt220" if ($ENV{TERM} eq 'xterm');
 
-my $debug = 1;
+my $debug = 0;
 use Curses::UI;
 
- open STDERR,">./log";
 # Create the root object.
 my $cui = new Curses::UI ( 
     -clear_on_exit => 1, 
@@ -169,9 +167,11 @@ my %args = (
 ,{ ROWNUM=>49, COUNTRY=>'Poland', PROD=>'O/S Documentation Set - French',SALE =>'4538.77' }
    );
 
-    use Number::Format;
-    my $mask= new Number::Format (  THOUSANDS_SEP=>' ', DECIMAL_POINT=>'.');
-
+    my $mask;
+    eval {
+        require 'Number::Format.pm';
+	$mask= new Number::Format (  THOUSANDS_SEP=>' ', DECIMAL_POINT=>'.');
+    };
 
     $grid=$w{3}->add('grid'
 	,'Grid'
@@ -183,7 +183,7 @@ my %args = (
         ,-onrowdraw => sub{
             my $row=shift;
             my $v=$row->get_value('SALE');
-            if(int($v) <  1000) {
+            if(int($v ||0) <  1000) {
                 $row->bg('red');
             } else { $row->bg(''); }
 	}
@@ -200,21 +200,21 @@ my %args = (
 
         ,-oncelllayout => sub{
             my $cell=shift;
-	    return $cell if($cell->id ne 'SALE');
-	    my $v=$cell->text;
-	    return $mask->format_picture($v,'### ### ###.##');
+	    			return $cell if($cell->id ne 'SALE');
+	    			my $v=$cell->text;
+	    			return $mask ?  $mask->format_picture($v,'### ### ###.##') : $v;
 	}
 
    	,-onnextpage=> sub {
 	    my $grid=shift;
 	    my ($pgsize,$pg)=($grid->page_size,$grid->page);
 	    
-	    my $row=$grid->getfocusrow;
+	    my $row=$grid->get_foused_row;
 	    my $offset=$pgsize*$grid->page($pg+1);
 	    if($offset < $#data) {
-		fill_data($offset,$pgsize,\@data,$grid );
+				fill_data($offset,$pgsize,\@data,$grid );
 	    } else { $grid->page($pg);return 0; }
-	    my $last_row=$grid->getfocusrow;
+	    my $last_row=$grid->get_foused_row;
             $grid->focus_row($last_row,1,0) if($last_row ne $row);
 	    return $grid;
 	}

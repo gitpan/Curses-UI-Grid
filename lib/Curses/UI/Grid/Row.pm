@@ -21,7 +21,8 @@ use vars qw(
     $VERSION 
     @ISA
     );
-$VERSION = '0.01';
+
+$VERSION = '0.13';
 
 @ISA = qw(
 	     Curses::UI::Grid
@@ -51,7 +52,7 @@ sub new ()
     );
     
     # Create the Row
-    my $this = {%args,-canvasscr=>$args{-parent}->{-canvasscr}};
+    my $this = {%args,-canvasscr=>$args{-parent}->canvasscr};
     bless $this;
     return $this;
 }
@@ -75,24 +76,28 @@ sub layout_row($;){
     my $this = shift;
     my $p=$this->parent;
     my $c=\@{ $p->{_cells} };
-    my ($text,$w)=("",$p->canvaswidth);
+    my $text = '';
+    my $w = $p->canvaswidth;
+    
     for my $i ( 0 ..    $#{$c} ) {
-	my $o=$p->id2cell($$c[$i]);
-	$text.=$o->layout_text()." " unless $o->hidden;
+				my $cell = $p->id2cell($$c[$i]);
+				$text .=  ($cell->layout_text() || '')
+				. ' '
+				  unless $cell->hidden;
     }
-    $text=substr( sprintf("%-".$w."s" ,$text),0,$w);
-return $text;
+    $text = substr(sprintf("%-" . $w . "s", $text), 0, $w);
 }
 
 
 sub draw(;$) {
     my $this = shift;
     my $no_doupdate = shift || 0;
+    my $grid = $this->parent;
     return $this if $Curses::UI::screen_too_small;
     return $this if $this->hidden;
     $this->layout_row;
     $this->draw_row($no_doupdate);
-    doupdate() unless $no_doupdate;
+    doupdate() if ! $no_doupdate && ! $grid->test_more;
     return $this;
 }    
 
@@ -107,7 +112,7 @@ sub draw_row(;$) {
 
 
     my $p=$this->parent();
-    $this->{-canvasscr}->attron(A_BOLD) if($this->{-focus});
+    $this->canvasscr->attron(A_BOLD) if($this->{-focus});
 
        $p->run_event('-onrowdraw',$this);	
 
@@ -115,18 +120,18 @@ sub draw_row(;$) {
        # for header grid's colors
        my $fg=($this->type ne 'head') ? $this->fg : $p->{-fg} ;
        my $bg=($this->type ne 'head') ? $this->bg : $p->{-bg} ;
-       my $pair=$p->set_color($fg,$bg,$this->{-canvasscr});
+       my $pair=$p->set_color($fg,$bg,$this->canvasscr);
       
        my $c=\@{ $p->{_cells} };
         for my $i(0 .. $#{$c} ) { 
 	    $p->id2cell( $$c[$i] )->draw_cell(1,$this);;
 	}
-       $this->{-canvasscr}->attroff(A_BOLD) if($this->{-focus});
-       $p->color_off($pair,$this->{-canvasscr});
+       $this->canvasscr->attroff(A_BOLD) if($this->{-focus});
+       $p->color_off($pair,$this->canvasscr);
     
     $this->draw_vline() if($this->type ne "head");
 
-    $this->{-canvasscr}->noutrefresh;
+    $this->canvasscr->noutrefresh;
     return $this;
 }
 
@@ -134,16 +139,22 @@ sub draw_row(;$) {
 #draw certical line
 sub draw_vline(;$) {
     my $this = shift;
-    my $p=$this->parent;
-    my $pair=$p->set_color( $p->{-bfg} ne "-1" ? $p->{-bfg} :$p->{-fg},$this->bg,$this->{-canvasscr});
-
-	foreach my $x (@{ $p->{-vlines} }) {
-	           $this->{-canvasscr}->move($this->y,$x);
-        	    $this->{-canvasscr}->vline(ACS_VLINE,1);	    
+    my $grid = $this->parent;
+    my $pair = $grid->set_color( 
+      ($grid->{-bfg} || '') ne '-1' 
+        ? $grid->{-bfg} 
+        : $grid->{-fg},
+      $this->bg,
+      $this->canvasscr
+    );
+	
+		foreach my $x (@{$grid->vertical_lines}) {
+	      $this->canvasscr->move($this->y,$x);
+        $this->canvasscr->vline(ACS_VLINE,1);	    
 		}
-        $p->color_off($pair,$this->{-canvasscr});
-
-    return $this;
+    
+    $grid->color_off($pair, $this->canvasscr);
+		$this;
 }
 
 
@@ -173,7 +184,7 @@ sub event_onfocus() {
     # clear date change info
     $this->{-cell_undo} = {};
     $this->draw(1);
-        my $cell = $p->getfocuscell;
+        my $cell = $p->get_foused_cell;
            $cell->event_onfocus if (defined $cell);
     return $this;
 }
@@ -204,7 +215,7 @@ sub event_onblur() {
 
     #If the Container loose it focus
     #the current focused child must be unfocused
-    my $cell = $this->parent->getfocuscell;
+    my $cell = $this->parent->get_foused_cell;
 
     #test if current row can be unfocused otherwise cancel current event
      if(defined $cell) {
@@ -290,16 +301,19 @@ sub get_values_ref($;) {
     return \%{  $this->{-cells} };
 }
 
+sub cleanup {
+		my $this = shift;
+		my $grid = $this->parent or return;		
+    delete $grid->{-rowid2idx}{$this->id};
+    delete $grid->{-id2row}{$this->id};
+    $grid->{-rows}--;
+		$this->{$_} = ''
+			for (qw(-canvasscr -parent));
+}
+
 sub DESTROY($;) {
     my $this = shift;
-    # clear references
-    foreach my $k (qw(-canvasscr -parent)) {
-         $this->{$k}='';
-    }
-    foreach my $k( keys %{$this} ) {
-	delete $this->{$k};
-    }
-
+    $this->cleanup;
 }
 
 1;
@@ -310,10 +324,7 @@ __END__
 
 =head1 NAME
 
-Curses::UI::Grid::Row 
-
-Create and manipulate row in grid model.
-
+Curses::UI::Grid::Row - Create and manipulate row in grid model.
 
 =head1 CLASS HIERARCHY
 
@@ -344,8 +355,8 @@ Create and manipulate row in grid model.
 
 
 =head1 STANDARD OPTIONS
-       -parent,-fg,-bg
 
+       -parent,-fg,-bg
 
 
 =head1 WIDGET-SPECIFIC OPTIONS
@@ -454,13 +465,13 @@ This routine will set or get value for cell and active row.
 =back
 
 =head1 SEE ALSO
-       Curses::UI::Grid::Cell Curses::UI::Grid
 
-
+L<Curses::UI::Grid::Cell>
+L<Curses::UI::Grid>
 
 =head1 AUTHOR
 
-       Copyright (c) 2004 by Adrian Witas. All rights reserved.
+Copyright (c) 2004 by Adrian Witas. All rights reserved.
 
 
 
@@ -469,9 +480,6 @@ This routine will set or get value for cell and active row.
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-
-=pod SCRIPT CATEGORIES
-
-User Interfaces
+=cut
 
 

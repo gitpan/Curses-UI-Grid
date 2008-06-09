@@ -23,7 +23,7 @@ use vars qw(
     @ISA
 );
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 
 
 @ISA = qw(
@@ -628,9 +628,36 @@ sub id2cell{
     $this->{-id2cell}{$id}
 }
 
-sub id        { shift()->{-id}        }
+
+=item id
+
+=cut
+
+sub id  {shift()->{-id}}
+
+
+=item readonly
+
+=cut
+
 sub readonly  { shift()->{-readonly}  }
+
+
+=item canvasscr
+
+Returns canva ref.
+
+=cut
+
 sub canvasscr { shift()->{-canvasscr} }
+
+
+=item test_more
+
+Returns flag if uses test mode.
+
+=cut
+
 sub test_more { shift()->{-test_more} }
 
 
@@ -734,7 +761,7 @@ sub current_cell_index {
 }
 
 
-=item current_cell_id( INDEX )
+=item cell_id ( INDEX )
 
 Returns current cell id. Takes cell position index. 
 
@@ -837,7 +864,7 @@ sub current_row_index {
 }
 
 
-=item current_row_id( INDEX )
+=item row_id ( INDEX )
 
 Returns current row id. Takes row position index. 
 
@@ -1464,7 +1491,7 @@ sub layout_cells {
 }
 
 
-=item layout_horizontal_scrollbar.
+=item layout_horizontal_scrollbar
 
 Layouts horizontal scrollbar, takes total cells width
 
@@ -1484,7 +1511,7 @@ sub layout_horizontal_scrollbar {
 }
 
 
-=item layout_vertical_scrollbar.
+=item layout_vertical_scrollbar
 
 Layouts vertical scrollbar, takes total cells width
 

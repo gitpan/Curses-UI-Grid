@@ -13,6 +13,8 @@ package Curses::UI::Grid::Cell;
 
 
 use strict;
+use warnings;
+
 use Curses;
 use Curses::UI::Common;
 use Curses::UI::Grid;
@@ -22,7 +24,7 @@ use vars qw(
     @ISA
 );
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 @ISA = qw(Curses::UI::Grid);
     
 
@@ -696,6 +698,63 @@ If -bg_  is NULL then -bg or parent bg color is return.
 =item * B<text> ( TEXT )
 
 Thid routine could set or get text value for given cell and active row.
+
+
+=item * B<add_string>
+
+=item * B<align>
+
+=item * B<backspace>
+
+=item * B<current_width>
+
+=item * B<cursor_left>
+
+=item * B<cursor_right>
+
+=item * B<cursor_to_end>
+
+=item * B<cursor_to_home>
+
+=item * B<delete_character>
+
+=item * B<event_onblur>
+
+=item * B<event_onfocus>
+
+=item * B<focus>
+
+=item * B<frozen>
+
+=item * B<has_focus>
+
+=item * B<label>
+
+=item * B<layout_text>
+
+=item * B<overwriteoff>
+
+=item * B<overwriteon>
+
+=item * B<overwritetext>
+
+=item * B<row>
+
+=item * B<set_position>
+
+=item * B<text_xpos>
+
+=item * B<width>
+
+=item * B<x>
+
+=item * B<xabs_pos>
+
+=item * B<xoffset>
+
+=item * B<xpos>
+
+=item * B<cleanup>
 
 =back
 

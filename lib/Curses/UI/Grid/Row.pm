@@ -13,6 +13,8 @@ package Curses::UI::Grid::Row;
 
 
 use strict;
+use warnings;
+
 use Curses;
 use Curses::UI::Common;
 use Curses::UI::Grid;
@@ -22,7 +24,7 @@ use vars qw(
     @ISA
     );
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 
 @ISA = qw(
 	     Curses::UI::Grid
@@ -136,8 +138,8 @@ sub draw_row(;$) {
 }
 
 
-#draw certical line
-sub draw_vline(;$) {
+
+sub draw_vline {
     my $this = shift;
     my $grid = $this->parent;
     my $pair = $grid->set_color( 
@@ -278,7 +280,7 @@ sub get_undo_value($;) {
     my $cell = shift;
     my $result='';
     my $cell_id=ref($cell) ? $cell->{-id} : $cell;
-    $result= $this->{-cells_undo}{$cell_id} if( exists($this->{-cells}{$cell_id}) );
+    $result= $this->{-cells_undo}{$cell_id} if(exists($this->{-cells}{$cell_id}));
     return $result;
 }
 
@@ -301,15 +303,17 @@ sub get_values_ref($;) {
     return \%{  $this->{-cells} };
 }
 
+
 sub cleanup {
-		my $this = shift;
-		my $grid = $this->parent or return;		
+    my $this = shift;
+    my $grid = $this->parent or return;		
     delete $grid->{-rowid2idx}{$this->id};
     delete $grid->{-id2row}{$this->id};
     $grid->{-rows}--;
-		$this->{$_} = ''
-			for (qw(-canvasscr -parent));
+    $this->{$_} = ''
+    for (qw(-canvasscr -parent));
 }
+
 
 sub DESTROY($;) {
     my $this = shift;
@@ -461,6 +465,28 @@ If -bg_  is NULL then -bg or parent bg color is return.
 
 This routine will set or get value for cell and active row.
 
+
+=item * B<draw_vline>
+
+Draws line.
+
+=item * B<event_onblur>
+
+=item * B<event_onfocus>
+
+=item * B<get_undo_value>
+
+=item * B<layout_content>
+
+=item * B<set_undo_value>
+
+=item * B<type>
+
+=item * B<y>
+
+=item * B<cleanup>
+
+Cleanup association between parent, canva, etc..
 
 =back
 

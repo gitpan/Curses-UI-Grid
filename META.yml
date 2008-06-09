@@ -1,11 +1,18 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Curses-UI-Grid
-version:      0.14
-version_from: lib/Curses/UI/Grid.pm
-installdirs:  site
-requires:
+--- #YAML:1.0
+name:                Curses-UI-Grid
+version:             0.15
+author:
+  - 'Adrian Witas <adrian@webapp.strefa.pl>'
+abstract: Create and manipulate data in grid model
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+generated_by:        ExtUtils::MakeMaker version 6.3201
+distribution_type:   module
+requires:     
     Curses::UI:                    0
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.30
+    Test::Pod:                     0
+    Test::Pod::Coverage:           0
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.2.html
+    version: 1.2

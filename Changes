@@ -1,5 +1,8 @@
 Revision history for Perl extension Curses::UI::Grid.
 
+0.15  Mon May 09 2008
+	- Pod tests added
+
 0.13  Mon May 05 2008
 	- Refactoring stage 1
         - layout bug fix
